@@ -207,7 +207,7 @@ while 1:
         if time.monotonic() > check_network_again_timer + 10:
             print("Attempting... " + str(wifi.radio.tx_power))
             wifi.radio.tx_power += 1
-            if wifi.radio.tx_power == 20: wifi.radio.tx_power = 16
+            if wifi.radio.tx_power == 20: wifi.radio.tx_power = 18
             if not first_start:
                 check_network_again_timer = connect_to_network(timeout=3, silent=True)
             else: check_network_again_timer = time.monotonic()
