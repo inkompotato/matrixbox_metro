@@ -629,12 +629,12 @@ def renderstring(_string, screen_partition = 0, min = 0, slow = 0, invertcolor =
     elif large: varinit.currentfont = 0
     
     
-    if varinit.currentfont: screen_location = [topbottom, topbottom, topbottom, topbottom]
+    if varinit.currentfont or screen_partition > 2: screen_location = [topbottom, topbottom, topbottom, topbottom]
     else: screen_location = [bottom, top, top, bottom]
     
     if screen_partition > 2: 
-        offs = int(str(screen_partition)[1:]) * 8 # mini = 6, small/large = 8
-        if mini: offs = int(str(screen_partition)[1:]) * 6
+        _row_step = 6 if mini else (13 if varinit.currentfont == 0 else 8)
+        offs = int(str(screen_partition)[1:]) * _row_step
         screen_partition = 0
     
     
@@ -795,8 +795,10 @@ def list_mode(mini=False, half=False):
 
 
     if varinit.if_long > 128: version_delay(slowdown=1)
+    large_list = varinit.matrix.height >= 64 and not mini and not half and not varinit.rotated and int(varinit.settings.get("large_list", 0))
     varinit.currentfont = 1
     if mini: varinit.currentfont = 2
+    elif large_list: varinit.currentfont = 0
     cls(topbottom)
     extrarow = 1 if mini else 0
     varinit.tg1.y, varinit.tg2.y, varinit.tg3.y = extrarow + 0-32, extrarow + 16-32, extrarow + 0
@@ -864,6 +866,15 @@ def list_mode(mini=False, half=False):
                 #    return time.monotonic()
                 #if not half: return time.monotonic() - varinit.updatedelay + 2
         
+            if large_list and isinstance(trainlist, list):
+                _max_lw = 0
+                for _a in trainlist:
+                    if isinstance(_a, list) and len(_a) > 1:
+                        _w = strlen(_a[1][:varinit.settings["line_length"]])
+                        if _w > _max_lw: _max_lw = _w
+                line_col = _max_lw + 6
+            else:
+                line_col = 0
             for x, all in enumerate(trainlist):
                 
                 
@@ -890,6 +901,10 @@ def list_mode(mini=False, half=False):
                     _w = varinit.if_long if varinit.rotated else varinit.display.width
                     _max_px = _w - strlen(all[3])
                     while len(all[2]) > 0 and strlen(all[2]) > _max_px:
+                        all[2] = all[2][:-1]
+                elif large_list:
+                    _max_px = varinit.if_long - strlen(all[3]) - line_col
+                    while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                         all[2] = all[2][:-1]
                 elif not half: all[2] = all[2][:25]
                 if half: 
@@ -941,11 +956,18 @@ def list_mode(mini=False, half=False):
                     line = ""
 
                 
-                renderstring(multiple_offset + minsleft, 100+x, 0, 0, inv, mini=mini, sys_msg=min_color)
-                renderstring(multiple_offset + added_space + dest, 100+x, 0, 0, inv, mini=mini)
-                if not half and not varinit.rotated and varinit.display.width > 64: renderstring(multiple_offset + line, 100+x, 0, 0, inv,  mini=mini, sys_msg=lin_color)
-                
-                if x > varinit.if_tall // 8 - 1: continue
+                if large_list:
+                    _lpart = 100 + x
+                    _dest_pad = line_col * "("
+                    renderstring(multiple_offset + minsleft, _lpart, 0, 0, inv, sys_msg=min_color)
+                    renderstring(multiple_offset + _dest_pad + dest, _lpart, 0, 0, inv)
+                    if not half and not varinit.rotated: renderstring(multiple_offset + line, _lpart, 0, 0, inv, sys_msg=lin_color)
+                    if x > 4: continue
+                else:
+                    renderstring(multiple_offset + minsleft, 100+x, 0, 0, inv, mini=mini, sys_msg=min_color)
+                    renderstring(multiple_offset + added_space + dest, 100+x, 0, 0, inv, mini=mini)
+                    if not half and not varinit.rotated and varinit.display.width > 64: renderstring(multiple_offset + line, 100+x, 0, 0, inv,  mini=mini, sys_msg=lin_color)
+                    if x > varinit.if_tall // 8 - 1: continue
             num -= 1
             
     except Exception as e: print("ERROR ", e)
