@@ -170,6 +170,7 @@ settingstxt = {"password": "none",
             "ssid": "my_ssid", 
             "offset": 0, 
             "mini":0,
+            "large_list":0,
             
             "clocktime": 0, 
 
