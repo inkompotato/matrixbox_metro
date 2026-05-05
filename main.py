@@ -72,9 +72,9 @@ def connect_to_network(timeout=False, silent=False):
         if not silent: pprint(str(settings["ssid"]))
         channel = settings.get("channel", 0)
         if channel:
-            wifi.radio.connect(settings["ssid"], settings["password"], channel=int(channel), timeout=timeout)
+            wifi.radio.connect(str(settings["ssid"]), str(settings["password"]), channel=int(channel), timeout=timeout)
         else:
-            wifi.radio.connect(settings["ssid"], settings["password"], timeout=timeout)
+            wifi.radio.connect(str(settings["ssid"]), str(settings["password"]), timeout=timeout)
         pprint(str(wifi.radio.ipv4_address))
         savesettings(settings)
     except Exception as e: 
