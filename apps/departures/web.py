@@ -127,6 +127,7 @@ PAGE_TPL = """<!DOCTYPE html>
 {WHITE_BTN}</td></tr>
 <tr><td><b>{T_LIST_COLORS}</b></td><td>{LISTCOLOR_CHK} {LISTCOLOR_TIME_CHK}</td></tr>
 <tr><td><b>{T_FONT_MINI}</b></td><td>{FONTMINI_CHK}</td></tr>
+<tr><td><b>Large list</b></td><td>{LARGE_LIST_CHK}</td></tr>
 <tr><td><b>Timer</b></td><td><button type="button" onclick="location.href='/?timer=set'">&#8987;</button></td></tr>
 <tr><td></td><td>{INVERT_CHK}</td></tr>
 <tr><td><b>{T_ROTATION}</b></td><td><button type="button" data-u="/?rotate=1">&#128260; 90&deg;</button></td></tr>
@@ -428,6 +429,9 @@ def html():
     # fontmini
     fontmini_html = _chk("FONTMINI", s["mini"], "/?fontmini=switch", T["font_mini_line"])
 
+    # large_list
+    large_list_html = _chk("LARGE_LIST", s.get("large_list", 0), "/?large_list=switch", "font_large list (64px)")
+
     # invert
     invert_html = _chk("INVERT", s["invert"], "/?invert=switch", T["invert"])
 
@@ -504,6 +508,7 @@ def html():
         "LISTCOLOR_TIME_CHK": listcolor_time_html,
         "T_FONT_MINI": T["font_mini"],
         "FONTMINI_CHK": fontmini_html,
+        "LARGE_LIST_CHK": large_list_html,
         "INVERT_CHK": invert_html, "DNS_SECTION": dns_html,
         "T_ROTATION": T.get("rotation", "Rotation"),
         "RT_INDICATOR_CHK": rt_indicator_html,
