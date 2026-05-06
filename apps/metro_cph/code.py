@@ -506,8 +506,8 @@ def metro_interface(request):
         + cfg["station_id"]
         + ")<br>"
         "<b>Debug Info:</b><br>"
-        "URL: " + _departures_url() + "<br>"<br>"
-        "Raw API Response: <pre>" + json.dumps(last_api_response, indent=2) + "</pre>
+        "URL: " + _departures_url() + "<br>"
+        "Raw API Response: <pre>" + json.dumps(last_api_response, indent=2) + "</pre><br>"
         "Last POST body: " + str(last_post_body) + "<br>"
         "Rows: <pre>" + json.dumps(rows, indent=2) + "</pre>"
         "</body></html>"
