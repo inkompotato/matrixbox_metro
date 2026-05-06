@@ -14,7 +14,7 @@ OPS_URL = "https://m.dk/api/operationsdata/"
 DEP_URL_BASE = "https://m.dk/api/departures/?ids="
 DEP_URL_SUFFIX = "&useBus=false&useTrain=false"
 
-SETTINGS_FILE = "metro_cphsettings.txt"
+SETTINGS_FILE = "metro_cphsettings.json"
 DEFAULTS = {
     "station_id": "8603317",
     "station_name": "Vestamager",
@@ -134,15 +134,17 @@ def load_cfg():
     return cfg
 
 
-cfg = load_cfg()
-
-
 def _save_cfg():
     try:
         with open(SETTINGS_FILE, "w") as f:
             f.write(json.dumps(cfg))
     except Exception as e:
         print("Save error:", e)
+
+
+cfg = load_cfg()
+# Persist any defaults / resolved station_id back to disk so the file always has the id.
+_save_cfg()
 
 
 def _departures_url():
@@ -451,7 +453,7 @@ def metro_interface(request):
         "<html><head><meta charset=\"utf-8\"></head><body>"
         "<a href=\"/exit\">&#x274C;</a><br>"
         "<b>Copenhagen Metro board</b><br><br>"
-        "<form method=\"post\" action=\"/\">"
+        "<form method=\"get\" action=\"/set\">"
         "<label for=\"station_id\">Station:</label>"
         "<select name=\"station_id\" id=\"station_id\">"
         + "".join(options)
@@ -468,13 +470,12 @@ def metro_interface(request):
     return (200, {}, html)
 
 
-@ampule.route("/", method="POST")
-def metro_interface_post(request):
+@ampule.route("/set", method="GET")
+def metro_interface_set(request):
     global last_fetch, rows
-    if "station_id" in request.params:
+    sid = ""
+    if request.params and "station_id" in request.params:
         sid = str(request.params["station_id"]).strip()
-    else:
-        sid = ""
     if sid and _station_name_from_id(sid):
         cfg["station_id"] = sid
         cfg["station_name"] = _station_name_from_id(sid)
