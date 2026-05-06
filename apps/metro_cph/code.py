@@ -187,14 +187,15 @@ def _departures_url():
 
 
 def _safe_json_get(url):
+    global last_api_response
     resp = None
     try:
         resp = requests.get(url, headers={"User-Agent": "MatrixBox"})
-        out = json.loads(resp.text)
+        out = resp.json()
         resp.close()
         return out
     except Exception as e:
-        print("API error:", e)
+        last_api_response = "ERROR: " + str(e)
         try:
             resp.close()
         except:
@@ -264,7 +265,8 @@ def _normalize_group(group_txt):
 def fetch_departures():
     global last_api_response
     data = _safe_json_get(_departures_url())
-    last_api_response = data
+    if data is not None:
+        last_api_response = data
     if not isinstance(data, list) or not data:
         return []
 
