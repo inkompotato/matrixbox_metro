@@ -135,9 +135,11 @@ def load_cfg():
 
 
 def _save_cfg():
+    # Only persist the station_id; station_name is derived from stations.json on load.
+    to_save = {k: v for k, v in cfg.items() if k != "station_name"}
     try:
         with open(SETTINGS_FILE, "w") as f:
-            f.write(json.dumps(cfg))
+            f.write(json.dumps(to_save))
     except Exception as e:
         print("Save error:", e)
 
