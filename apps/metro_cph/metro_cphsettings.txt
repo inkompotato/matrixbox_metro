@@ -1,0 +1,1 @@
+{"station_name": "Vestamager", "refresh_s": 30, "scroll_speed": 1, "frame_delay": 0.03}
