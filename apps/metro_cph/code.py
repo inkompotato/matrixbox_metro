@@ -1,4 +1,4 @@
-# v10
+# v11
 
 from __main__ import *
 import sys, time, gc
@@ -12,9 +12,9 @@ microcontroller.cpu.frequency = 160000000
 DISP_W = settings["width"]
 DISP_H = settings["height"]
 
-OPS_URL = "https://m.dk/api/operationsdata/"
-DEP_URL_BASE = "https://m.dk/api/departures/?ids="
-DEP_URL_SUFFIX = "&useBus=false&useTrain=false"
+OPS_URL = "http://metroapi.hextransit.com/operationsdata"
+DEP_URL_BASE = "http://metroapi.hextransit.com/departures?station_id="
+DEP_URL_SUFFIX = ""
 
 SETTINGS_FILE = "metro_cphsettings.json"
 DEFAULTS = {
@@ -188,16 +188,27 @@ def _departures_url():
     return DEP_URL_BASE + str(cfg["station_id"]) + DEP_URL_SUFFIX
 
 
+last_error = ""
+
 def _safe_json_get(url):
+    global last_error
     resp = None
     try:
         gc.collect()
         resp = requests.get(url, headers={"User-Agent": "MatrixBox"})
-        out = resp.json()
-        resp.close()
+        # On microcontrollers, loading the full JSON dynamically might still blow out RAM
+        # Let's try buffering it in via `json.load()` if the request object supports file-like streaming
+        try:
+            import io
+            out = json.load(io.StringIO(resp.text))
+        except:
+            out = resp.json()
+        finally:
+            resp.close()
+        last_error = ""
         return out
     except Exception as e:
-        print("API error:", e)
+        last_error = "API error: " + str(e)
         try:
             if resp:
                 resp.close()
@@ -500,11 +511,10 @@ def metro_interface(request):
         + "</select>"
         "<button type=\"submit\">Save</button>"
         "</form><br>"
-        "Current station: "
-        + cfg["station_name"]
-        + " ("
-        + cfg["station_id"]
-        + ")"
+        "<b>Debug Info:</b><br>"
+        "URL: " + _departures_url() + "<br>"
+        "Rows: <pre>" + json.dumps(rows) + "</pre><br>"
+        "Last Error: " + str(last_error) + "<br>"
         "</body></html>"
     )
     gc.collect()
