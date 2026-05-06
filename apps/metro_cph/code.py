@@ -490,7 +490,7 @@ def metro_interface(request):
         options = ["<option value=\"\">No stations found</option>"]
 
     html = (
-        "<html><head><meta charset=\"utf-8\"></head><body>"
+        "<html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body>"
         "<a href=\"/exit\">&#x274C;</a><br>"
         "<b>Copenhagen Metro board</b><br><br>"
         "<form method=\"post\" action=\"/\">"
@@ -507,9 +507,9 @@ def metro_interface(request):
         + ")<br>"
         "<b>Debug Info:</b><br>"
         "URL: " + _departures_url() + "<br>"
-        "Raw API Response: <pre>" + json.dumps(last_api_response, indent=2) + "</pre><br>"
+        "Raw API Response: <pre>" + json.dumps(last_api_response) + "</pre><br>"
         "Last POST body: " + str(last_post_body) + "<br>"
-        "Rows: <pre>" + json.dumps(rows, indent=2) + "</pre>"
+        "Rows: <pre>" + json.dumps(rows) + "</pre>"
         "</body></html>"
     )
     return (200, {}, html)
