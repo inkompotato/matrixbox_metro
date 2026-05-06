@@ -1,5 +1,8 @@
 from __main__ import *
 import sys, time, gc
+import json
+import load_screen
+from load_screen import *
 from check_button import check_if_button_pressed
 
 microcontroller.cpu.frequency = 160000000
@@ -416,7 +419,10 @@ def metro_interface(request):
 
 @ampule.route("/", method="POST")
 def metro_interface_post(request):
-    sid = str(request.params.get("station_id", "")).strip()
+    if "station_id" in request.params:
+        sid = str(request.params["station_id"]).strip()
+    else:
+        sid = ""
     if sid and _station_name_from_id(sid):
         cfg["station_id"] = sid
         cfg["station_name"] = _station_name_from_id(sid)
