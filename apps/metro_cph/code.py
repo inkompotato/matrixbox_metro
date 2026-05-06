@@ -1,4 +1,4 @@
-# v11
+# v12
 
 from __main__ import *
 import sys, time, gc
@@ -20,7 +20,7 @@ SETTINGS_FILE = "metro_cphsettings.json"
 DEFAULTS = {
     "station_id": "8603317",
     "station_name": "Vestamager",
-    "refresh_s": 30,
+    "refresh_s": 15,
     "scroll_speed": 1,
     "frame_delay": 0.03,
 }
@@ -345,35 +345,19 @@ def fetch_operations():
 
 def build_rows(dep_list, ops_state):
     rows = {
-        "station_name": cfg["station_name"],
-        "header_line": "",
-        "line2_left": "No departures",
-        "line2_right": "-",
-        "line3": "Next: -",
         "ops12": ops_state.get("M1/M2", {"clear": True, "message": ""}),
         "ops34": ops_state.get("M3/M4", {"clear": True, "message": ""}),
+        "deps": []
     }
 
-    if not dep_list:
-        return rows
+    if dep_list:
+        for d in dep_list[:3]:
+            rows["deps"].append({
+                "line": d.get("line", "M"),
+                "direction": str(d.get("direction", "")).strip() or "Unknown",
+                "minutes": str(d.get("minutes", "-"))
+            })
 
-    first = dep_list[0]
-    line = first.get("line", "M")
-    direction = first.get("direction", "").strip() or "Unknown"
-    minutes = first.get("minutes", "-")
-
-    rows["header_line"] = line
-    rows["line2_left"] = direction
-    rows["line2_right"] = minutes
-
-    next_three = []
-    for d in dep_list[1:]:
-        if d.get("direction", "").strip() == direction:
-            next_three.append(d.get("minutes", "-"))
-        if len(next_three) == 3:
-            break
-
-    rows["next_three"] = next_three
     return rows
 
 
@@ -434,53 +418,37 @@ def _draw_status_row(line_no, status_obj, line_a, line_b, scroll_px):
         x += marquee_w
 
 
-def _draw_header(rows, y):
-    station = rows.get("station_name", "")
-    line = rows.get("header_line", "")
-    if line:
-        line_w = _text_width(" " + line)
-        max_station = max(0, DISP_W - line_w)
-        station_clip = _clip_to_width(station, max_station)
-        _draw_text(station_clip, 0, y, COLOR[MAIN_COLOR])
-        x = _text_width(station_clip)
-        _draw_text(" ", x, y, COLOR[MAIN_COLOR])
-        x += _text_width(" ")
-        _draw_text(line, x, y, COLOR[LINE_COLORS.get(line, "white")])
-    else:
-        _draw_text(_clip_to_width(station, DISP_W), 0, y, COLOR[MAIN_COLOR])
-
-
-def _draw_next_row(rows, y):
-    label = "Next: "
-    _draw_text(label, 0, y, COLOR[MAIN_COLOR])
-    x = _text_width(label)
-    times = rows.get("next_three") or []
-    if not times:
-        _draw_text("-", x, y, COLOR[TIME_COLOR],
-                   clip_left=x, clip_right=DISP_W - 1)
+def _draw_dep_row(line_no, dep):
+    y = TOP_Y + (line_no * LINE_STEP)
+    if not dep:
+        _draw_text("-", 0, y, COLOR[MAIN_COLOR])
         return
-    sep = " "
-    for i, t in enumerate(times):
-        if i:
-            _draw_text(sep, x, y, COLOR[MAIN_COLOR],
-                       clip_left=x, clip_right=DISP_W - 1)
-            x += _text_width(sep)
-        if x >= DISP_W:
-            break
-        _draw_text(str(t), x, y, COLOR[TIME_COLOR],
-                   clip_left=x, clip_right=DISP_W - 1)
-        x += _text_width(str(t))
+
+    line = dep["line"]
+    direction = str(dep["direction"]).upper()
+    minutes = dep["minutes"]
+
+    line_w = _text_width(line) + 2
+    right_w = _text_width(minutes)
+    right_x = max(0, DISP_W - right_w)
+    left_max = max(0, right_x - 1)
+
+    _draw_text(line, 0, y, COLOR[LINE_COLORS.get(line, "white")])
+    
+    msg_x_start = line_w
+    left_txt = _clip_to_width(direction, max(0, left_max - msg_x_start))
+
+    _draw_text(left_txt, msg_x_start, y, COLOR[MAIN_COLOR], clip_left=msg_x_start, clip_right=left_max)
+    _draw_text(minutes, right_x, y, COLOR[TIME_COLOR], clip_left=right_x, clip_right=DISP_W - 1)
 
 
 def render(rows, scroll12, scroll34):
     window.fill(0)
 
-    _draw_header(rows, TOP_Y + 0 * LINE_STEP)
-
-    _draw_row_right_aligned(1, rows["line2_left"], rows["line2_right"],
-                            MAIN_COLOR, TIME_COLOR)
-
-    _draw_next_row(rows, TOP_Y + 2 * LINE_STEP)
+    deps = rows.get("deps", [])
+    for i in range(3):
+        dep = deps[i] if i < len(deps) else None
+        _draw_dep_row(i, dep)
 
     _draw_status_row(3, rows["ops12"], "M1", "M2", scroll12)
     _draw_status_row(4, rows["ops34"], "M3", "M4", scroll34)
@@ -535,11 +503,9 @@ def metro_interface_post(request):
         cfg["station_name"] = _station_name_from_id(sid)
         _save_cfg()
         last_fetch = -999
-        rows["station_name"] = cfg["station_name"]
-        rows["header_line"] = ""
-        rows["line2_left"] = "Loading..."
-        rows["line2_right"] = "-"
-        rows["next_three"] = []
+        rows["ops12"] = {"clear": True, "message": ""}
+        rows["ops34"] = {"clear": True, "message": ""}
+        rows["deps"] = []
     return (200, {}, """<meta http-equiv=\"refresh\" content=\"0; url=/\" />""")
 
 
