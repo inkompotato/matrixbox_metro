@@ -35,7 +35,9 @@ COLOR = {
     "blue": 3,
     "red": 4,
     "white": 5,
+    "light_blue": 6,
     "green": 7,
+    "orange": 11,
 }
 
 LINE_COLORS = {
@@ -44,6 +46,10 @@ LINE_COLORS = {
     "M3": "red",
     "M4": "blue",
 }
+
+MAIN_COLOR = "orange"
+TIME_COLOR = "light_blue"
+SEP_COLOR = "white"
 
 
 def _load_stations():
@@ -287,8 +293,8 @@ def fetch_operations():
 
 def build_rows(dep_list, ops_state):
     rows = {
-        "header_text": cfg["station_name"],
-        "header_color": "white",
+        "station_name": cfg["station_name"],
+        "header_line": "",
         "line2_left": "No departures",
         "line2_right": "-",
         "line3": "Next: -",
@@ -304,8 +310,7 @@ def build_rows(dep_list, ops_state):
     direction = first.get("direction", "").strip() or "Unknown"
     minutes = first.get("minutes", "-")
 
-    rows["header_text"] = cfg["station_name"] + " " + line
-    rows["header_color"] = LINE_COLORS.get(line, "white")
+    rows["header_line"] = line
     rows["line2_left"] = direction
     rows["line2_right"] = minutes
 
@@ -316,11 +321,7 @@ def build_rows(dep_list, ops_state):
         if len(next_three) == 3:
             break
 
-    if next_three:
-        rows["line3"] = "Next: " + " ".join(next_three)
-    else:
-        rows["line3"] = "Next: -"
-
+    rows["next_three"] = next_three
     return rows
 
 
@@ -344,43 +345,93 @@ def _draw_row_right_aligned(line_no, left_text, right_text, left_color, right_co
     _draw_text(right_text, right_x, y, COLOR[right_color], clip_left=right_x, clip_right=DISP_W - 1)
 
 
-def _draw_status_row(line_no, left_width, status_obj, label, scroll_px):
-    y = TOP_Y + (line_no * LINE_STEP)
-    label_w = _text_width(label)
-    label_x = DISP_W - label_w
+def _draw_line_group_label(x, y, line_a, line_b):
+    """Draw e.g. 'M1/M2' with each line code in its own color. Returns end x."""
+    _draw_text(line_a, x, y, COLOR[LINE_COLORS.get(line_a, "white")])
+    x += _text_width(line_a)
+    _draw_text("/", x, y, COLOR[SEP_COLOR])
+    x += _text_width("/")
+    _draw_text(line_b, x, y, COLOR[LINE_COLORS.get(line_b, "white")])
+    x += _text_width(line_b)
+    return x
 
-    _draw_text(label, label_x, y, COLOR["white"], clip_left=label_x, clip_right=DISP_W - 1)
+
+def _draw_status_row(line_no, status_obj, line_a, line_b, scroll_px):
+    y = TOP_Y + (line_no * LINE_STEP)
+    label_text = line_a + "/" + line_b
+    label_w = _text_width(label_text)
+    _draw_line_group_label(0, y, line_a, line_b)
+
+    msg_x_start = label_w + 2
+    msg_clip_right = DISP_W - 1
 
     if status_obj.get("clear", True):
-        _draw_dot(max(0, label_x - 4), y + 1, COLOR["green"])
+        _draw_dot(msg_x_start, y + 1, COLOR["green"])
         return
 
     msg = str(status_obj.get("message", "")).strip()
     if not msg:
         return
 
-    # Repeat text with spacing for a seamless marquee.
     marquee = msg + "    "
     marquee_w = max(1, _text_width(marquee))
-    x = -scroll_px
-    while x < left_width:
-        _draw_text(marquee, x, y, COLOR["yellow"], clip_left=0, clip_right=left_width - 1)
+    x = msg_x_start - scroll_px
+    while x < msg_clip_right:
+        _draw_text(marquee, x, y, COLOR[MAIN_COLOR],
+                   clip_left=msg_x_start, clip_right=msg_clip_right)
         x += marquee_w
+
+
+def _draw_header(rows, y):
+    station = rows.get("station_name", "")
+    line = rows.get("header_line", "")
+    if line:
+        line_w = _text_width(" " + line)
+        max_station = max(0, DISP_W - line_w)
+        station_clip = _clip_to_width(station, max_station)
+        _draw_text(station_clip, 0, y, COLOR[MAIN_COLOR])
+        x = _text_width(station_clip)
+        _draw_text(" ", x, y, COLOR[MAIN_COLOR])
+        x += _text_width(" ")
+        _draw_text(line, x, y, COLOR[LINE_COLORS.get(line, "white")])
+    else:
+        _draw_text(_clip_to_width(station, DISP_W), 0, y, COLOR[MAIN_COLOR])
+
+
+def _draw_next_row(rows, y):
+    label = "Next: "
+    _draw_text(label, 0, y, COLOR[MAIN_COLOR])
+    x = _text_width(label)
+    times = rows.get("next_three") or []
+    if not times:
+        _draw_text("-", x, y, COLOR[TIME_COLOR],
+                   clip_left=x, clip_right=DISP_W - 1)
+        return
+    sep = " "
+    for i, t in enumerate(times):
+        if i:
+            _draw_text(sep, x, y, COLOR[MAIN_COLOR],
+                       clip_left=x, clip_right=DISP_W - 1)
+            x += _text_width(sep)
+        if x >= DISP_W:
+            break
+        _draw_text(str(t), x, y, COLOR[TIME_COLOR],
+                   clip_left=x, clip_right=DISP_W - 1)
+        x += _text_width(str(t))
 
 
 def render(rows, scroll12, scroll34):
     window.fill(0)
 
-    header = _clip_to_width(rows["header_text"], DISP_W)
-    _draw_text(header, 0, TOP_Y + 0 * LINE_STEP, COLOR[rows["header_color"]])
+    _draw_header(rows, TOP_Y + 0 * LINE_STEP)
 
-    _draw_row_right_aligned(1, rows["line2_left"], rows["line2_right"], "white", "yellow")
+    _draw_row_right_aligned(1, rows["line2_left"], rows["line2_right"],
+                            MAIN_COLOR, TIME_COLOR)
 
-    line3 = _clip_to_width(rows["line3"], DISP_W)
-    _draw_text(line3, 0, TOP_Y + 2 * LINE_STEP, COLOR["white"])
+    _draw_next_row(rows, TOP_Y + 2 * LINE_STEP)
 
-    _draw_status_row(3, DISP_W - _text_width("M1/M2") - 1, rows["ops12"], "M1/M2", scroll12)
-    _draw_status_row(4, DISP_W - _text_width("M3/M4") - 1, rows["ops34"], "M3/M4", scroll34)
+    _draw_status_row(3, rows["ops12"], "M1", "M2", scroll12)
+    _draw_status_row(4, rows["ops34"], "M3", "M4", scroll34)
 
     refresh()
 
@@ -419,6 +470,7 @@ def metro_interface(request):
 
 @ampule.route("/", method="POST")
 def metro_interface_post(request):
+    global last_fetch, rows
     if "station_id" in request.params:
         sid = str(request.params["station_id"]).strip()
     else:
@@ -427,6 +479,13 @@ def metro_interface_post(request):
         cfg["station_id"] = sid
         cfg["station_name"] = _station_name_from_id(sid)
         _save_cfg()
+        # Force immediate refresh on next loop iteration so new station applies right away.
+        last_fetch = -999
+        rows["station_name"] = cfg["station_name"]
+        rows["header_line"] = ""
+        rows["line2_left"] = "Loading..."
+        rows["line2_right"] = "-"
+        rows["next_three"] = []
     return (200, {}, """<meta http-equiv=\"refresh\" content=\"0; url=/\" />""")
 
 
