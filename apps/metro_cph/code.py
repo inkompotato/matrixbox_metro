@@ -1,3 +1,5 @@
+# v10
+
 from __main__ import *
 import sys, time, gc
 import json
@@ -55,7 +57,7 @@ SEP_COLOR = "white"
 def _load_stations():
     try:
         with open("stations.json") as f:
-            data = json.loads(f.read())
+            data = json.load(f)
     except:
         data = []
 
@@ -65,10 +67,10 @@ def _load_stations():
             continue
         sid = str(item.get("id", "")).strip()
         name = str(item.get("name", "")).strip()
-        short_name = str(item.get("shortName", "")).strip()
         if not sid or not name:
             continue
-        out.append({"id": sid, "name": name, "shortName": short_name})
+        # Only store what we actually need to save RAM
+        out.append({"id": sid, "name": name})
 
     return out
 
@@ -187,17 +189,18 @@ def _departures_url():
 
 
 def _safe_json_get(url):
-    global last_api_response
     resp = None
     try:
+        gc.collect()
         resp = requests.get(url, headers={"User-Agent": "MatrixBox"})
         out = resp.json()
         resp.close()
         return out
     except Exception as e:
-        last_api_response = "ERROR: " + str(e)
+        print("API error:", e)
         try:
-            resp.close()
+            if resp:
+                resp.close()
         except:
             pass
         return None
@@ -263,10 +266,7 @@ def _normalize_group(group_txt):
 
 
 def fetch_departures():
-    global last_api_response
     data = _safe_json_get(_departures_url())
-    if data is not None:
-        last_api_response = data
     if not isinstance(data, list) or not data:
         return []
 
@@ -477,11 +477,9 @@ def render(rows, scroll12, scroll34):
     refresh()
 
 
-last_post_body = ""
-last_api_response = None
-
 @ampule.route("/", method="GET")
 def metro_interface(request):
+    gc.collect()
     options = []
     selected_id = str(cfg.get("station_id", ""))
     for st in STATIONS:
@@ -506,22 +504,18 @@ def metro_interface(request):
         + cfg["station_name"]
         + " ("
         + cfg["station_id"]
-        + ")<br>"
-        "<b>Debug Info:</b><br>"
-        "URL: " + _departures_url() + "<br>"
-        "Raw API Response: <pre>" + json.dumps(last_api_response) + "</pre><br>"
-        "Last POST body: " + str(last_post_body) + "<br>"
-        "Rows: <pre>" + json.dumps(rows) + "</pre>"
+        + ")"
         "</body></html>"
     )
+    gc.collect()
     return (200, {}, html)
 
 
 @ampule.route("/", method="POST")
 def metro_interface_post(request):
-    global last_fetch, rows, last_post_body
-    last_post_body = getattr(request, "body", "") or ""
-    form = _parse_form(last_post_body)
+    global last_fetch, rows
+    body = getattr(request, "body", "") or ""
+    form = _parse_form(body)
     sid = str(form.get("station_id", "")).strip()
     if not sid and "station_id" in request.params:
         sid = str(request.params["station_id"]).strip()
