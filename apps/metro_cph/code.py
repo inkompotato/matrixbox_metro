@@ -144,6 +144,39 @@ def _save_cfg():
         print("Save error:", e)
 
 
+def _url_decode(s):
+    s = s.replace("+", " ")
+    out = ""
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c == "%" and i + 2 < len(s):
+            try:
+                out += chr(int(s[i + 1:i + 3], 16))
+                i += 3
+                continue
+            except:
+                pass
+        out += c
+        i += 1
+    return out
+
+
+def _parse_form(body):
+    params = {}
+    if not body:
+        return params
+    for pair in str(body).split("&"):
+        if not pair:
+            continue
+        if "=" in pair:
+            k, v = pair.split("=", 1)
+        else:
+            k, v = pair, ""
+        params[_url_decode(k)] = _url_decode(v)
+    return params
+
+
 cfg = load_cfg()
 # Persist any defaults / resolved station_id back to disk so the file always has the id.
 _save_cfg()
@@ -455,7 +488,7 @@ def metro_interface(request):
         "<html><head><meta charset=\"utf-8\"></head><body>"
         "<a href=\"/exit\">&#x274C;</a><br>"
         "<b>Copenhagen Metro board</b><br><br>"
-        "<form method=\"get\" action=\"/set\">"
+        "<form method=\"post\" action=\"/\">"
         "<label for=\"station_id\">Station:</label>"
         "<select name=\"station_id\" id=\"station_id\">"
         + "".join(options)
@@ -472,17 +505,18 @@ def metro_interface(request):
     return (200, {}, html)
 
 
-@ampule.route("/set", method="GET")
-def metro_interface_set(request):
+@ampule.route("/", method="POST")
+def metro_interface_post(request):
     global last_fetch, rows
-    sid = ""
-    if request.params and "station_id" in request.params:
+    form = _parse_form(getattr(request, "body", "") or "")
+    sid = str(form.get("station_id", "")).strip()
+    if not sid and "station_id" in request.params:
         sid = str(request.params["station_id"]).strip()
+        
     if sid and _station_name_from_id(sid):
         cfg["station_id"] = sid
         cfg["station_name"] = _station_name_from_id(sid)
         _save_cfg()
-        # Force immediate refresh on next loop iteration so new station applies right away.
         last_fetch = -999
         rows["station_name"] = cfg["station_name"]
         rows["header_line"] = ""
