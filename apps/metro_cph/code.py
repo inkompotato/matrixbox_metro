@@ -337,8 +337,12 @@ def fetch_operations():
         if not text:
             continue
         if group in state:
-            state[group]["clear"] = False
-            state[group]["message"] = text
+            if text.lower() == "vi kører efter planen":
+                state[group]["clear"] = True
+                state[group]["message"] = text
+            else:
+                state[group]["clear"] = False
+                state[group]["message"] = text
 
     return state
 
